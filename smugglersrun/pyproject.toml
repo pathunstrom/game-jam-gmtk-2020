@@ -1,0 +1,35 @@
+[tool.briefcase]
+project_name = "Smuggler's Run"
+bundle = "dev.thunstrom.piper"
+version = "0.0.2"
+url = "https://piper.thunstrom.dev/smugglersrun"
+license = "Proprietary"
+author = 'Piper Thunstrom'
+author_email = "pathunstrom@gmail.com"
+
+[tool.briefcase.app.smugglersrun]
+formal_name = "Smuggler's Run"
+description = "A space race game for the GMTK Gamejam 2020"
+icon = "src/smugglersrun/resources/smugglersrun"
+sources = ['src/smugglersrun']
+requires = [
+    'ppb~=0.9.0',
+]
+
+
+[tool.briefcase.app.smugglersrun.macOS]
+requires = []
+
+[tool.briefcase.app.smugglersrun.linux]
+requires = []
+system_requires = []
+
+[tool.briefcase.app.smugglersrun.windows]
+requires = []
+
+# Mobile deployments
+[tool.briefcase.app.smugglersrun.iOS]
+requires = []
+
+[tool.briefcase.app.smugglersrun.android]
+requires = []

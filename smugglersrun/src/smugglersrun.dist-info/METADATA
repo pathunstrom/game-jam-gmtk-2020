@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Briefcase-Version: 0.3.2
+Name: smugglersrun
+Formal-Name: Smuggler's Run
+App-ID: dev.thunstrom.piper.smugglersrun
+Version: 0.0.1
+Home-page: https://piper.thunstrom.dev/smugglersrun
+Author: Piper Thunstrom
+Author-email: pathunstrom@gmail.com
+Summary: A space race game for the GMTK Gamejam 2020
