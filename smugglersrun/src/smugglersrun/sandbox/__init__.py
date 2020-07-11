@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from random import random
+from random import uniform
 from time import perf_counter
 from typing import Callable
 
@@ -15,6 +16,7 @@ from smugglersrun.utils import box_collide
 
 
 CONFIG_STARTING_DAMAGE = 10
+CONFIG_DAMAGE_CHANCE_INCREASE = 0.1
 
 @dataclass
 class Update(ppb.events.Update):
@@ -67,6 +69,11 @@ class Player(ppb.Sprite):
         now = perf_counter()
         controls = event.controls
 
+        if self.control_active(self.components["rotate_left"], controls, now):
+            self.rotate(self.CONFIG_ROTATION_PER_FRAME)
+        if self.control_active(self.components["rotate_right"], controls, now):
+            self.rotate(-self.CONFIG_ROTATION_PER_FRAME)
+
         if self.control_active(self.components["forward"], controls, now):
             acceleration += self.facing.scale_to(self.CONFIG_THRUST_FORWARD)
             self.forward_thrust_sprite.opacity = 255
@@ -82,18 +89,13 @@ class Player(ppb.Sprite):
         if self.control_active(self.components["left"], controls, now):
             acceleration += self.facing.rotate(90).scale_to(self.CONFIG_THRUST_LATERAL)
 
-        if self.control_active(self.components["rotate_left"], controls, now):
-            self.rotate(self.CONFIG_ROTATION_PER_FRAME)
-        if self.control_active(self.components["rotate_right"], controls, now):
-            self.rotate(-self.CONFIG_ROTATION_PER_FRAME)
-
         self.velocity += acceleration * event.time_delta
         self.position += self.velocity * event.time_delta
 
         damage_chance = 0
         for mine in event.scene.get(kind=ShockMine):
             if box_collide(self, mine):
-                damage_chance += 0.1
+                damage_chance += CONFIG_DAMAGE_CHANCE_INCREASE
 
         component: Component
         for component in self.components.values():
@@ -121,17 +123,29 @@ class ShockMine(ppb.Sprite):
 
 
 class Sandbox(ppb.BaseScene):
+    CONFIG_DENSITY_MODIFER = 1
+    remaining_time = 0
 
-    def __init__(self):
+    def __init__(self, *, difficulty_level:int = 10, components: dict = None, remaining_time: float = 0):
         super().__init__()
+
         forward = ppb.Sprite(opacity=0)
         self.add(forward)
-        self.add(Player(forward_thrust_sprite=forward), tags=["player"])
-        for y in range(5, 286, 10):
-            self.add(ShockMine(position=(0, y)))
+        if components is not None:
+            self.add(Player(forward_thrust_sprite=forward, components=components), tags=["player"])
+        else:
+            self.add(Player(forward_thrust_sprite=forward), tags=["player"])
+
+        for root_y in range(5, 286, 10):
+            chunk_root = ppb.Vector(0, root_y)
+            positions = []
+            for _ in range(int(difficulty_level * self.CONFIG_DENSITY_MODIFER)):
+                x = uniform(-10, 10)
+                y = uniform(-10, 10)
+                self.add(ShockMine(position=chunk_root + ppb.Vector(x, y)))
             # self.add(ppb.Sprite(image=ppb.Square(80, 200, 60), position=(0, y), size=0.25))
-            self.add(ppb.Sprite(image=ppb.Square(175, 60, 75), position=(10, y), size=0.25))
-            self.add(ppb.Sprite(image=ppb.Square(175, 60, 75), position=(-10, y), size=0.25))
+            self.add(ppb.Sprite(image=ppb.Square(175, 60, 75), position=(10, root_y), size=0.25))
+            self.add(ppb.Sprite(image=ppb.Square(175, 60, 75), position=(-10, root_y), size=0.25))
         self.add(ppb.Sprite(image=ppb.Square(100, 200, 75), position=(0, 285)), tags=["finish"])
         self.started = perf_counter()
         self.finished = False
