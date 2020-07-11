@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from itertools import product
 from random import random
 from random import uniform
 from time import perf_counter
@@ -119,14 +120,14 @@ class Player(ppb.Sprite):
 
 
 class ShockMine(ppb.Sprite):
-    image = ppb.Square(120, 130, 225)
-
+    image = ppb.Image("smugglersrun/resources/shock-mine.png")
+    size = 0.25
 
 class Sandbox(ppb.BaseScene):
-    CONFIG_DENSITY_MODIFER = 1
+    CONFIG_DENSITY_MODIFER = 3
     remaining_time = 0
 
-    def __init__(self, *, difficulty_level:int = 10, components: dict = None, remaining_time: float = 0):
+    def __init__(self, *, difficulty_level:int = 1, components: dict = None, remaining_time: float = 0):
         super().__init__()
 
         forward = ppb.Sprite(opacity=0)
@@ -136,17 +137,20 @@ class Sandbox(ppb.BaseScene):
         else:
             self.add(Player(forward_thrust_sprite=forward), tags=["player"])
 
-        for root_y in range(5, 286, 10):
+        for root_y in range(10, 291, 20):
             chunk_root = ppb.Vector(0, root_y)
-            positions = []
             for _ in range(int(difficulty_level * self.CONFIG_DENSITY_MODIFER)):
                 x = uniform(-10, 10)
                 y = uniform(-10, 10)
                 self.add(ShockMine(position=chunk_root + ppb.Vector(x, y)))
             # self.add(ppb.Sprite(image=ppb.Square(80, 200, 60), position=(0, y), size=0.25))
-            self.add(ppb.Sprite(image=ppb.Square(175, 60, 75), position=(10, root_y), size=0.25))
-            self.add(ppb.Sprite(image=ppb.Square(175, 60, 75), position=(-10, root_y), size=0.25))
-        self.add(ppb.Sprite(image=ppb.Square(100, 200, 75), position=(0, 285)), tags=["finish"])
+            for x_pos, y_mod in product((-10, 10), range(-10, 10, 3)):
+                self.add(ppb.Sprite(
+                    image=ppb.Image("smugglersrun/resources/beacon.png"),
+                    position=(x_pos, root_y + y_mod),
+                    size=0.25
+                ))
+        self.add(ppb.RectangleSprite(image=ppb.Square(100, 200, 75), position=(0, 285), width=20), tags=["finish"])
         self.started = perf_counter()
         self.finished = False
 
