@@ -18,7 +18,7 @@ from smugglersrun.utils import box_collide
 # 10KM = 285 unit (approx)
 
 
-CONFIG_STARTING_DAMAGE = 10
+CONFIG_STARTING_DAMAGE = 0
 CONFIG_DAMAGE_CHANCE_INCREASE = 0.1
 
 @dataclass
@@ -152,13 +152,14 @@ class Sandbox(ppb.BaseScene):
     CONFIG_DENSITY_MODIFER = 3
     CONFIG_PENALTY_START_MULTIPLIER = 5
     CONFIG_PENALTY_OOB_MULTIPLIER = 0.1
+    CONFIG_BONUS_TIME = 3
     remaining_time = 0
     start_timer = 5
     end_timer = 5
 
     def __init__(self, *, difficulty_level:int = 1, components: dict = None, remaining_time: float = 30):
         super().__init__()
-
+        self.difficulty_level = difficulty_level
         forward = ppb.Sprite(opacity=0)
         self.add(forward)
         if components is not None:
@@ -194,7 +195,7 @@ class Sandbox(ppb.BaseScene):
 
         time_display: TimeDisplay = next(self.get(kind=TimeDisplay))
         time_display.position = cam.position + ppb.Vector(8, -6)
-        time_display.time = self.remaining_time
+        time_display.time = self.remaining_time if self.remaining_time > 0 else 0
 
         countdown = next(self.get(tag="start"))
         if self.start_timer > 0:
@@ -205,22 +206,22 @@ class Sandbox(ppb.BaseScene):
             countdown.opacity = 0
 
         countdown = next(self.get(tag="end"))
-        if self.finished and self.end_timer > 0:
+        if (self.finished or self.remaining_time <= 0) and  self.end_timer > 0:
             countdown.position = cam.position + ppb.Vector(0, 2)
             countdown.time = self.end_timer
             countdown.opacity = 255
         else:
             countdown.opacity = 0
 
-    def on_update(self, update: ppb.events.Update, __):
-        player = next(self.get(kind=Player))
+    def on_update(self, update: ppb.events.Update, signal_event):
+        player:Player = next(self.get(kind=Player))
         finish = next(self.get(tag="finish"))
 
         if self.start_timer > 0:
             self.start_timer -= update.time_delta
             if player.position.x >= 5:
                 self.remaining_time -= update.time_delta * self.CONFIG_PENALTY_START_MULTIPLIER
-        elif not self.finished:
+        elif not self.finished and self.remaining_time > 0:
             if player.position.y >= finish.position.y:
                 self.finished = True
             elif -11 <= player.position.x <= 11:
@@ -229,4 +230,16 @@ class Sandbox(ppb.BaseScene):
         elif self.end_timer > 0:
             self.end_timer -= update.time_delta
         else:
-            print("Moving on")
+            if self.remaining_time <= 0:
+                signal_event(ppb.events.StopScene())
+            else:
+                signal_event(
+                    ppb.events.ReplaceScene(
+                        Sandbox,
+                        kwargs={
+                            "difficulty_level": self.difficulty_level + 1,
+                            "components": player.components,
+                            "remaining_time": self.remaining_time + self.difficulty_level * self.CONFIG_BONUS_TIME,
+                        }
+                    )
+                )
