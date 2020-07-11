@@ -1,19 +1,20 @@
 from dataclasses import dataclass
-from pprint import pprint
 from random import random
 from time import perf_counter
 from typing import Callable
 
 import ppb
 
-from smugglersrun.systems import Controls
 from smugglersrun.perlin import PerlinNoiseFactory
+from smugglersrun.systems import Controls
+from smugglersrun.utils import box_collide
+
 # Game design assumptions:
 # 1. 1 unit ~= 35m
 # 10KM = 285 unit (approx)
 
 
-CONFIG_STARTING_DAMAGE = 15
+CONFIG_STARTING_DAMAGE = 10
 
 @dataclass
 class Update(ppb.events.Update):
@@ -81,13 +82,24 @@ class Player(ppb.Sprite):
         if self.control_active(self.components["left"], controls, now):
             acceleration += self.facing.rotate(90).scale_to(self.CONFIG_THRUST_LATERAL)
 
+        if self.control_active(self.components["rotate_left"], controls, now):
+            self.rotate(self.CONFIG_ROTATION_PER_FRAME)
+        if self.control_active(self.components["rotate_right"], controls, now):
+            self.rotate(-self.CONFIG_ROTATION_PER_FRAME)
+
         self.velocity += acceleration * event.time_delta
         self.position += self.velocity * event.time_delta
 
-        if event.controls.rotate_left:
-            self.rotate(self.CONFIG_ROTATION_PER_FRAME)
-        if event.controls.rotate_right:
-            self.rotate(-self.CONFIG_ROTATION_PER_FRAME)
+        damage_chance = 0
+        for mine in event.scene.get(kind=ShockMine):
+            if box_collide(self, mine):
+                damage_chance += 0.1
+
+        component: Component
+        for component in self.components.values():
+            random_val = random()
+            if random_val <= damage_chance:
+                component.damage += 1
 
     def on_pre_render(self, event, signal):
         self.forward_thrust_sprite.position = self.position + (self.facing * -1)
@@ -101,7 +113,6 @@ class Player(ppb.Sprite):
         return (control_val and not malfunction) or (not control_val and malfunction)
 
     def on_quit(self, _, __):
-        pprint(self.debug_values)
         print(f"min: {min(self.debug_values)}, max: {max(self.debug_values)}, mean: {sum(self.debug_values) / len(self.debug_values)}")
 
 
