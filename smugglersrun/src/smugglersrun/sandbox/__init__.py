@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from itertools import product
+from math import floor
 from random import random
 from random import uniform
 from time import perf_counter
@@ -7,6 +8,7 @@ from typing import Callable
 
 import ppb
 
+from smugglersrun import font
 from smugglersrun.perlin import PerlinNoiseFactory
 from smugglersrun.systems import Controls
 from smugglersrun.utils import box_collide
@@ -123,11 +125,38 @@ class ShockMine(ppb.Sprite):
     image = ppb.Image("smugglersrun/resources/shock-mine.png")
     size = 0.25
 
+
+class TimeDisplay(ppb.RectangleSprite):
+    height = 0.5
+    time = 0
+
+    @property
+    def image(self):
+        minutes = self.time // 60 or "00"
+        seconds = floor(self.time % 60) or "00"
+        fractions = self.time % 1
+        result = f"{str(minutes)[-2:]}:{seconds}:{fractions * 100:02.0f}"
+        return ppb.Text(result, font=font.button, color=font.color)
+
+
+class Countdown(ppb.Sprite):
+    height = 2
+    time = 0
+
+    @property
+    def image(self):
+        return ppb.Text(str(int(self.time)), font=font.title, color=font.color)
+
+
 class Sandbox(ppb.BaseScene):
     CONFIG_DENSITY_MODIFER = 3
+    CONFIG_PENALTY_START_MULTIPLIER = 5
+    CONFIG_PENALTY_OOB_MULTIPLIER = 0.1
     remaining_time = 0
+    start_timer = 5
+    end_timer = 5
 
-    def __init__(self, *, difficulty_level:int = 1, components: dict = None, remaining_time: float = 0):
+    def __init__(self, *, difficulty_level:int = 1, components: dict = None, remaining_time: float = 30):
         super().__init__()
 
         forward = ppb.Sprite(opacity=0)
@@ -150,7 +179,11 @@ class Sandbox(ppb.BaseScene):
                     position=(x_pos, root_y + y_mod),
                     size=0.25
                 ))
-        self.add(ppb.RectangleSprite(image=ppb.Square(100, 200, 75), position=(0, 285), width=20), tags=["finish"])
+        self.add(ppb.RectangleSprite(image=ppb.Square(100, 200, 75), position=(0, 285)), tags=["finish"])
+        self.add(TimeDisplay(time=remaining_time), tags=["timer"])
+        self.add(Countdown(time=self.start_timer), tags=["countdown", "start"])
+        self.add(Countdown(time=self.start_timer), tags=["countdown", "end"])
+        self.remaining_time = remaining_time
         self.started = perf_counter()
         self.finished = False
 
@@ -159,9 +192,41 @@ class Sandbox(ppb.BaseScene):
         player = next(self.get(kind=Player))
         cam.position = player.position
 
-    def on_update(self, _, __):
+        time_display: TimeDisplay = next(self.get(kind=TimeDisplay))
+        time_display.position = cam.position + ppb.Vector(8, -6)
+        time_display.time = self.remaining_time
+
+        countdown = next(self.get(tag="start"))
+        if self.start_timer > 0:
+            countdown.position = cam.position + ppb.Vector(0, 2)
+            countdown.time = self.start_timer
+            countdown.opacity = 255
+        else:
+            countdown.opacity = 0
+
+        countdown = next(self.get(tag="end"))
+        if self.finished and self.end_timer > 0:
+            countdown.position = cam.position + ppb.Vector(0, 2)
+            countdown.time = self.end_timer
+            countdown.opacity = 255
+        else:
+            countdown.opacity = 0
+
+    def on_update(self, update: ppb.events.Update, __):
         player = next(self.get(kind=Player))
         finish = next(self.get(tag="finish"))
-        if not self.finished and player.position.y >= finish.position.y:
-            print(f"Run finished: {perf_counter() - self.started}s")
-            self.finished = True
+
+        if self.start_timer > 0:
+            self.start_timer -= update.time_delta
+            if player.position.x >= 5:
+                self.remaining_time -= update.time_delta * self.CONFIG_PENALTY_START_MULTIPLIER
+        elif not self.finished:
+            if player.position.y >= finish.position.y:
+                self.finished = True
+            elif -11 <= player.position.x <= 11:
+                self.remaining_time -= update.time_delta * self.CONFIG_PENALTY_OOB_MULTIPLIER
+            self.remaining_time -= update.time_delta
+        elif self.end_timer > 0:
+            self.end_timer -= update.time_delta
+        else:
+            print("Moving on")
