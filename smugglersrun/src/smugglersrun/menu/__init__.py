@@ -4,6 +4,7 @@ from ppb.events import ButtonReleased, StartScene, StopScene
 
 from smugglersrun import font
 from smugglersrun.sandbox import Sandbox
+from smugglersrun.systems import BackgroundMusic, QueueBackgroundMusic
 from smugglersrun.utils import sprite_contains_point
 
 
@@ -22,6 +23,9 @@ class LargeDisplay(Display):
     font = font.title
 
 
+bgm = BackgroundMusic("smugglersrun/resources/bgm.wav", play_forever=True)
+
+
 class Credits(BaseScene):
 
     def __init__(self):
@@ -32,12 +36,14 @@ class Credits(BaseScene):
         self.add(Display(text="Game Design and Programming By:", position=Vector(-6, 5)))
         self.add(Display(text="Piper Thunstrom", position=Vector(-6, 4)))
 
-        self.add(Display(text="Font Anita Semi-Square By:", position=Vector(-6.75, 2.5)))  # Last: 7 6.5
-        self.add(Display(text="Gustavo Paz", position=Vector(-6.5, 1.5)))  # Last 7 6
-        self.add(Display(text="Used under CC-SA 4.0", position=Vector(4, 1.5)))
+        self.add(Display(text="Font Anita Semi-Square By:", position=Vector(-6.75, 2.5)))
+        self.add(Display(text="Gustavo Paz -- Used under CC-SA 4.0", position=Vector(-2.9, 1.5)))  # Last 3.5 3.25
 
         self.add(Display(text="Images by:", position=(-9, 0)))  # Last: 7
         self.add(Display(text="Kenney studios", position=(-6, -1)))
+
+        self.add(Display(text="Music Ludum Dare 28 - Track 3 by:", position=(-5.47, -2.5)))  # 5.75 5
+        self.add(Display(text="Abstraction -- www.abstractionmusic.com", position=(-2.62, -3.5)))  # 2.75 2.5
 
     def on_button_released(self, event: ButtonReleased, signal):
         if event.button is not Primary:
@@ -58,6 +64,9 @@ class Menu(BaseScene):
         self.play_game_button = Display(text="Play", position=Vector(0, -4))
         self.add(self.play_game_button, tags=["button"])
 
+    def on_scene_started(self, event, signal):
+        signal(QueueBackgroundMusic(bgm))
+
     def on_button_released(self, event: ButtonReleased, signal):
         if event.button is not Primary:
             return
@@ -65,8 +74,5 @@ class Menu(BaseScene):
             if sprite_contains_point(button, event.position):
                 if button is self.credits_button:
                     signal(StartScene(Credits))
-                    print("Game by Piper Thunstrom")
-                    print("Font: Anita semi-square by Gustavo Paz")
-                    print("Font used under CC-SA 4.0")
                 elif button is self.play_game_button:
                     signal(StartScene(Sandbox))
