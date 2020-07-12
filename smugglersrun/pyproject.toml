@@ -1,7 +1,7 @@
 [tool.briefcase]
 project_name = "Smuggler's Run"
 bundle = "dev.thunstrom.piper"
-version = "0.0.4"
+version = "0.0.5"
 url = "https://piper.thunstrom.dev/smugglersrun"
 license = "Proprietary"
 author = 'Piper Thunstrom'
