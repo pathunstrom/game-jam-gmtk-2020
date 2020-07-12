@@ -29,6 +29,13 @@ damage_images = [
     ppb.Image("smugglersrun/resources/laserBlue11.png"),
 ]
 
+shock_sounds = [
+    ppb.Sound("smugglersrun/resources/shock.wav"),
+    ppb.Sound("smugglersrun/resources/shock2.wav"),
+    ppb.Sound("smugglersrun/resources/shock3.wav"),
+]
+
+
 @dataclass
 class Update(ppb.events.Update):
     controls: Controls = None
@@ -95,13 +102,15 @@ class Player(ppb.Sprite):
     left_bottom_sprite: ppb.Sprite
     right_bottom_sprite: ppb.Sprite
     retro_sprite: ppb.Sprite
+    last_sound = -100
 
-    CONFIG_THRUST_FORWARD = 3
-    CONFIG_THRUST_LATERAL = 1.5
-    CONFIG_THRUST_REVERSE = 1.5
+    CONFIG_THRUST_FORWARD = 4.5
+    CONFIG_THRUST_LATERAL = 3
+    CONFIG_THRUST_REVERSE = 2
     CONFIG_ROTATION_PER_FRAME = 2.5
+    CONFIG_SOUND_COOL_DOWN = 0.3
 
-    def on_update(self, event: Update, _):
+    def on_update(self, event: Update, signal):
         acceleration = ppb.Vector(0, 0)
         now = perf_counter()
         controls = event.controls
@@ -148,6 +157,9 @@ class Player(ppb.Sprite):
             if box_collide(self, mine):
                 damage_chance += CONFIG_DAMAGE_CHANCE_INCREASE
                 mine.emit()
+                if now - self.last_sound >= self.CONFIG_SOUND_COOL_DOWN:
+                    signal(ppb.events.PlaySound(choice(shock_sounds)))
+                    self.last_sound = now
 
         component: Component
         for component in self.components.values():
@@ -159,7 +171,7 @@ class Player(ppb.Sprite):
                         image=choice(damage_images),
                         max_size=0.25,
                         run_time=0.25,
-                        start_time=perf_counter(),
+                        start_time=now,
                         offset=ppb.Vector(
                             uniform(-1, 1),
                             uniform(-1, 1)
@@ -243,11 +255,12 @@ class Thrust(ppb.Sprite):
     opacity = 0
     basis = ppb.Vector(0, 1)
 
+
 class Sandbox(ppb.BaseScene):
     CONFIG_DENSITY_MODIFER = 3
     CONFIG_PENALTY_START_MULTIPLIER = 5
     CONFIG_PENALTY_OOB_MULTIPLIER = 0.1
-    CONFIG_BONUS_TIME = 3
+    CONFIG_BONUS_TIME = 5
     remaining_time = 0
     start_timer = 5
     end_timer = 5
@@ -289,13 +302,16 @@ class Sandbox(ppb.BaseScene):
                     position=(x_pos, root_y + y_mod),
                     size=0.25
                 ))
-        self.add(ppb.RectangleSprite(image=ppb.Image("smugglersrun/resources/finish.png"), position=(0, 285), height=4, width=20), tags=["finish"])
+        self.add(ppb.RectangleSprite(image=ppb.Image("smugglersrun/resources/finish.png"), position=(0, 285), height=4, width=20, layer=-10), tags=["finish"])
         self.add(TimeDisplay(time=remaining_time), tags=["timer"])
         self.add(Countdown(time=self.start_timer), tags=["countdown", "start"])
         self.add(Countdown(time=self.start_timer), tags=["countdown", "end"])
         self.remaining_time = remaining_time
         self.started = perf_counter()
         self.finished = False
+
+        for sound in shock_sounds:
+            sound.volume = 5
 
     def on_pre_render(self, _, __):
         cam = self.main_camera
@@ -328,7 +344,7 @@ class Sandbox(ppb.BaseScene):
 
         if self.start_timer > 0:
             self.start_timer -= update.time_delta
-            if player.position.x >= 5:
+            if player.position.y >= 5:
                 self.remaining_time -= update.time_delta * self.CONFIG_PENALTY_START_MULTIPLIER
         elif not self.finished and self.remaining_time > 0:
             if player.position.y >= finish.position.y:
