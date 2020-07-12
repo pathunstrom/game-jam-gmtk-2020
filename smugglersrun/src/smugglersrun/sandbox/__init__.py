@@ -132,10 +132,10 @@ class TimeDisplay(ppb.RectangleSprite):
 
     @property
     def image(self):
-        minutes = self.time // 60 or "00"
-        seconds = floor(self.time % 60) or "00"
+        minutes = self.time // 60
+        seconds = floor(self.time % 60)
         fractions = self.time % 1
-        result = f"{str(minutes)[-2:]}:{seconds}:{fractions * 100:02.0f}"
+        result = f"{minutes:02.0f}:{seconds:02.0f}:{fractions * 100:02.0f}"
         return ppb.Text(result, font=font.button, color=font.color)
 
 
