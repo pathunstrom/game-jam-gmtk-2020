@@ -43,6 +43,27 @@ rot_left_random = PerlinNoiseFactory(1)
 rot_right_random = PerlinNoiseFactory(1)
 
 
+class Shockwave(ppb.Sprite):
+    image = ppb.Circle(165, 238, 235)
+    starting_size = 0.1
+    max_size = 2
+    run_time = 0.5
+    start_time: float
+    parent = None
+    opacity = 128
+
+    def on_pre_render(self, event, signal):
+        if perf_counter() - self.start_time >= self.run_time:
+            event.scene.remove(self)
+        if self.parent is not None:
+            self.position = self.parent.position
+
+    @property
+    def size(self):
+        size = ((self.max_size - self.starting_size) / self.run_time) * ((perf_counter() - self.start_time) / self.run_time)
+        return size
+
+
 class Player(ppb.Sprite):
     image = ppb.Image("smugglersrun/resources/dev_ship.png")
     basis = ppb.Vector(0, 1)
@@ -116,6 +137,7 @@ class Player(ppb.Sprite):
         for mine in event.scene.get(kind=ShockMine):
             if box_collide(self, mine):
                 damage_chance += CONFIG_DAMAGE_CHANCE_INCREASE
+                mine.emit()
 
         component: Component
         for component in self.components.values():
@@ -155,6 +177,20 @@ class Player(ppb.Sprite):
 class ShockMine(ppb.Sprite):
     image = ppb.Image("smugglersrun/resources/shock-mine.png")
     size = 0.25
+    activated = False
+    last_activated = -100
+    CONFIG_COOL_DOWN = 0.5
+
+    def emit(self):
+        now = perf_counter()
+        if not self.activated and now - self.last_activated >= self.CONFIG_COOL_DOWN:
+            self.activated = True
+            self.last_activated = now
+
+    def on_update(self, event, signal):
+        if self.activated:
+            event.scene.add(Shockwave(start_time=perf_counter(), parent=self))
+            self.activated = False
 
 
 class TimeDisplay(ppb.RectangleSprite):
