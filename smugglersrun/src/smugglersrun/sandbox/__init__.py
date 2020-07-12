@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from itertools import product
 from math import floor
+from random import choice
 from random import random
 from random import uniform
 from time import perf_counter
@@ -20,6 +21,13 @@ from smugglersrun.utils import box_collide
 
 CONFIG_STARTING_DAMAGE = 0
 CONFIG_DAMAGE_CHANCE_INCREASE = 0.1
+
+damage_images = [
+    ppb.Image("smugglersrun/resources/laserBlue08.png"),
+    ppb.Image("smugglersrun/resources/laserBlue09.png"),
+    ppb.Image("smugglersrun/resources/laserBlue10.png"),
+    ppb.Image("smugglersrun/resources/laserBlue11.png"),
+]
 
 @dataclass
 class Update(ppb.events.Update):
@@ -51,12 +59,14 @@ class Shockwave(ppb.Sprite):
     start_time: float
     parent = None
     opacity = 128
+    offset = ppb.Vector(0, 0)
+    layer = 5
 
     def on_pre_render(self, event, signal):
         if perf_counter() - self.start_time >= self.run_time:
             event.scene.remove(self)
         if self.parent is not None:
-            self.position = self.parent.position
+            self.position = self.parent.position + self.offset
 
     @property
     def size(self):
@@ -144,6 +154,19 @@ class Player(ppb.Sprite):
             random_val = random()
             if random_val <= damage_chance:
                 component.damage += 1
+                event.scene.add(
+                    Shockwave(
+                        image=choice(damage_images),
+                        max_size=0.25,
+                        run_time=0.25,
+                        start_time=perf_counter(),
+                        offset=ppb.Vector(
+                            uniform(-1, 1),
+                            uniform(-1, 1)
+                        ),
+                        parent=self
+                    )
+                )
 
     def on_pre_render(self, event, signal):
         self.forward_thrust_sprite.position = self.position + (self.facing * -1)
@@ -260,14 +283,13 @@ class Sandbox(ppb.BaseScene):
                 x = uniform(-10, 10)
                 y = uniform(-10, 10)
                 self.add(ShockMine(position=chunk_root + ppb.Vector(x, y)))
-            # self.add(ppb.Sprite(image=ppb.Square(80, 200, 60), position=(0, y), size=0.25))
             for x_pos, y_mod in product((-10, 10), range(-10, 10, 3)):
                 self.add(ppb.Sprite(
                     image=ppb.Image("smugglersrun/resources/beacon.png"),
                     position=(x_pos, root_y + y_mod),
                     size=0.25
                 ))
-        self.add(ppb.RectangleSprite(image=ppb.Square(100, 200, 75), position=(0, 285)), tags=["finish"])
+        self.add(ppb.RectangleSprite(image=ppb.Image("smugglersrun/resources/finish.png"), position=(0, 285), height=4, width=20), tags=["finish"])
         self.add(TimeDisplay(time=remaining_time), tags=["timer"])
         self.add(Countdown(time=self.start_timer), tags=["countdown", "start"])
         self.add(Countdown(time=self.start_timer), tags=["countdown", "end"])
