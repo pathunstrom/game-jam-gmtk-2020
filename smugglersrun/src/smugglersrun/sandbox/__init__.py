@@ -59,38 +59,55 @@ class Player(ppb.Sprite):
         "rotate_right": Component("rotate_right", damage=CONFIG_STARTING_DAMAGE, randomizer=lambda x: (rot_right_random(x) + 1) / 2)
     }
     forward_thrust_sprite: ppb.Sprite
+    left_top_sprite: ppb.Sprite
+    right_top_sprite: ppb.Sprite
+    left_bottom_sprite: ppb.Sprite
+    right_bottom_sprite: ppb.Sprite
+    retro_sprite: ppb.Sprite
 
     CONFIG_THRUST_FORWARD = 3
     CONFIG_THRUST_LATERAL = 1.5
     CONFIG_THRUST_REVERSE = 1.5
     CONFIG_ROTATION_PER_FRAME = 2.5
 
-    debug_values = []
-
     def on_update(self, event: Update, _):
         acceleration = ppb.Vector(0, 0)
         now = perf_counter()
         controls = event.controls
 
+        self.forward_thrust_sprite.opacity = 0
+        self.retro_sprite.opacity = 0
+        self.left_top_sprite.opacity = 0
+        self.left_bottom_sprite.opacity = 0
+        self.right_top_sprite.opacity = 0
+        self.right_bottom_sprite.opacity = 0
+
         if self.control_active(self.components["rotate_left"], controls, now):
             self.rotate(self.CONFIG_ROTATION_PER_FRAME)
+            self.right_top_sprite.opacity = 255
+            self.left_bottom_sprite.opacity = 255
         if self.control_active(self.components["rotate_right"], controls, now):
             self.rotate(-self.CONFIG_ROTATION_PER_FRAME)
+            self.left_top_sprite.opacity = 255
+            self.right_bottom_sprite.opacity = 255
 
         if self.control_active(self.components["forward"], controls, now):
             acceleration += self.facing.scale_to(self.CONFIG_THRUST_FORWARD)
             self.forward_thrust_sprite.opacity = 255
-        else:
-            self.forward_thrust_sprite.opacity = 0
 
         if self.control_active(self.components["backwards"], controls, now):
             acceleration += self.facing.scale_to(self.CONFIG_THRUST_REVERSE) * -1
+            self.retro_sprite.opacity = 255
 
         if self.control_active(self.components["right"], controls, now):
             acceleration += self.facing.rotate(-90).scale_to(self.CONFIG_THRUST_LATERAL)
+            self.left_top_sprite.opacity = 255
+            self.left_bottom_sprite.opacity = 255
 
         if self.control_active(self.components["left"], controls, now):
             acceleration += self.facing.rotate(90).scale_to(self.CONFIG_THRUST_LATERAL)
+            self.right_top_sprite.opacity = 255
+            self.right_bottom_sprite.opacity = 255
 
         self.velocity += acceleration * event.time_delta
         self.position += self.velocity * event.time_delta
@@ -108,17 +125,31 @@ class Player(ppb.Sprite):
 
     def on_pre_render(self, event, signal):
         self.forward_thrust_sprite.position = self.position + (self.facing * -1)
+        self.forward_thrust_sprite.facing = self.facing
+
+        self.retro_sprite.position = self.position + self.facing.scale_to(0.7)
+        self.retro_sprite.facing = -self.facing
+
+
+        right_facing = self.facing.rotate(-90)
+
+        self.left_top_sprite.position = self.position + -right_facing.scale_to(.2) + self.facing.scale_to(.4)
+        self.left_bottom_sprite.position = self.position + -right_facing.scale_to(.7) + -self.facing.scale_to(.15)
+        self.left_bottom_sprite.facing = right_facing
+        self.left_top_sprite.facing = right_facing
+
+        self.right_top_sprite.position = self.position + right_facing.scale_to(.2) + self.facing.scale_to(.4)
+        self.right_bottom_sprite.position = self.position + right_facing.scale_to(.7) + -self.facing.scale_to(.15)
+        self.right_top_sprite.facing = -right_facing
+        self.right_bottom_sprite.facing = -right_facing
 
     def control_active(self, component, controls, now):
         now = perf_counter()
         _random = component.randomizer(now / 5)
-        self.debug_values.append(_random)
         malfunction = _random < component.damage / component.CONFIG_MAX_DAMAGE
         control_val = getattr(controls, component.control_name)
         return (control_val and not malfunction) or (not control_val and malfunction)
 
-    def on_quit(self, _, __):
-        print(f"min: {min(self.debug_values)}, max: {max(self.debug_values)}, mean: {sum(self.debug_values) / len(self.debug_values)}")
 
 
 class ShockMine(ppb.Sprite):
@@ -148,6 +179,11 @@ class Countdown(ppb.Sprite):
         return ppb.Text(str(int(self.time)), font=font.title, color=font.color)
 
 
+class Thrust(ppb.Sprite):
+    image = ppb.Image("smugglersrun/resources/fire.png")
+    opacity = 0
+    basis = ppb.Vector(0, 1)
+
 class Sandbox(ppb.BaseScene):
     CONFIG_DENSITY_MODIFER = 3
     CONFIG_PENALTY_START_MULTIPLIER = 5
@@ -160,12 +196,27 @@ class Sandbox(ppb.BaseScene):
     def __init__(self, *, difficulty_level:int = 1, components: dict = None, remaining_time: float = 30):
         super().__init__()
         self.difficulty_level = difficulty_level
-        forward = ppb.Sprite(opacity=0)
-        self.add(forward)
+        forward = Thrust()
+        tl = Thrust(size=0.25)
+        tr = Thrust(size=0.25)
+        bl = Thrust(size=0.25)
+        br = Thrust(size=0.25)
+        retro = Thrust(size=0.25)
+        for x in (forward, tl, tr, bl, br, retro):
+            self.add(x, tags=["thrusters"])
+
+        kwargs = {
+            "forward_thrust_sprite": forward,
+            "left_top_sprite": tl,
+            "left_bottom_sprite": bl,
+            "right_top_sprite": tr,
+            "right_bottom_sprite": br,
+            "retro_sprite": retro
+        }
         if components is not None:
-            self.add(Player(forward_thrust_sprite=forward, components=components), tags=["player"])
-        else:
-            self.add(Player(forward_thrust_sprite=forward), tags=["player"])
+            kwargs["components"] = components
+
+        self.add(Player(**kwargs), tags=["player"])
 
         for root_y in range(10, 291, 20):
             chunk_root = ppb.Vector(0, root_y)
